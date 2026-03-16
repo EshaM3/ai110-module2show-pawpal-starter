@@ -12,12 +12,17 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+The initial UML design includes these classes: Owner, Pet, Task, and Schedule. The Owner will have their name and time availability blocks per day in a week. The Pet will only have their name to keep track of each pet. The Task will have a category (walking, feeding, etc.), maximum time duration, frequency, priority, and time ranges throughout the week. The last field cannot be seen or filled out by the user. The Schedule will populate the last field of the Tasks based on all other fields. It will have that list of Tasks as well as an explanation string for how and why the schedule was populated in such a way.
+
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
----
+Yes, it changed quite a bit. First of all, my pets just had a name attribute at first.I initially had others but removed it before generating the UML. AI reminded me that these attributes were important as each pet will have their own independent scheduled needs for meds, grooming time, etc. So I added those frequency attributes in the Pet class. This took off some load from the Task class which now only handles adding said tasks and their priorities. If you want to add non-routine tasks, that is also possible in the Task class.
+
+There are two new Dataclasses: Medication and ScheduledTask.
+Medication has its own days and times to take them. ScheduledTask is a task with updated times, assigned, owners, etc. when a schedule is generated.
 
 ## 2. Scheduling Logic and Tradeoffs
 
