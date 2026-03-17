@@ -46,4 +46,14 @@ pip install -r requirements.txt
 
 PawPal+ now has a full backend scheduling engine with practical, real-world features. You can model owners, pets, medications, and tasks; validate inputs (names, durations, non-overlapping time windows); and schedule tasks by priority against owner availability across the week. The planner supports routine and frequency-based tasks (daily, weekly, custom days, or number of days), tracks completion status, and outputs readable HH:MM time blocks. On top of that, tasks can be sorted by priority and filtered by completion or pet name, with tests covering key behaviors like task completion, time formatting, sorting, and filtering. The Streamlit UI also supports creating/updating owners and pets, defining frequencies, adding tasks, and preparing data for schedule generation.
 
+### Testing PawPal+
+
+pytest was used to test the system's logic.
+command used: python -m pytest
+
+These tests check that task sorting stays correct by priority, recurring tasks run on the right days, and schedule conflicts are detected and reported when time is limited.
+
+Based on test results in addition to apprehension of possible edge cases that I may have not gotten to, my Confidence Level in the system's reliability is 4.5 stars.
+
+
 
