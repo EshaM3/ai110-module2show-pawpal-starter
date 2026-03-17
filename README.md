@@ -46,6 +46,17 @@ pip install -r requirements.txt
 
 PawPal+ now has a full backend scheduling engine with practical, real-world features. You can model owners, pets, medications, and tasks; validate inputs (names, durations, non-overlapping time windows); and schedule tasks by priority against owner availability across the week. The planner supports routine and frequency-based tasks (daily, weekly, custom days, or number of days), tracks completion status, and outputs readable HH:MM time blocks. On top of that, tasks can be sorted by priority and filtered by completion or pet name, with tests covering key behaviors like task completion, time formatting, sorting, and filtering. The Streamlit UI also supports creating/updating owners and pets, defining frequencies, adding tasks, and preparing data for schedule generation.
 
+### Features
+
+- Priority-based scheduling algorithm that always attempts higher-priority tasks first.
+- First-fit time-slot allocation that scans availability windows and places each task in the earliest valid gap.
+- Incremental conflict prevention using a sorted occupied-time list and neighbor-only overlap checks.
+- Weekly recurrence resolution for DAILY, WEEKLY, CUSTOM_DAYS, and NUMBER_OF_DAYS patterns.
+- Input-validation algorithms for empty names, invalid time ranges, and overlapping availability blocks.
+- Stable priority normalization (`loadTasks`) that reindexes task priorities to a contiguous 1..N order.
+- Task filtering and retrieval algorithms for completion status and case-insensitive pet-name matching.
+- Human-readable schedule rendering with consistent HH:MM-HH:MM formatting and conflict explanations.
+
 ### Testing PawPal+
 
 pytest was used to test the system's logic.
@@ -55,5 +66,8 @@ These tests check that task sorting stays correct by priority, recurring tasks r
 
 Based on test results in addition to apprehension of possible edge cases that I may have not gotten to, my Confidence Level in the system's reliability is 4.5 stars.
 
+### Demo
+
+<a href="/images/pawpalapp.png" target="_blank"><img src='/images/pawpalapp.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>.
 
 

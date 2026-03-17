@@ -1,5 +1,6 @@
 import streamlit as st
 import pawpal_system
+from datetime import time
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -40,9 +41,16 @@ At minimum, your system should:
 st.divider()
 
 st.subheader("Quick Demo Inputs (UI only)")
+
+st.markdown("### Owner")
+st.caption("Create or update owner details.")
 owner_name = st.text_input("Owner name", value="Jordan")
-pet_name_input = st.text_input("Pet name", value="Mochi")
-species = st.selectbox("Species", ["dog", "cat", "other"])
+if st.button("Create / Update Owner"):
+    if st.session_state.owner is None:
+        st.session_state.owner = pawpal_system.Owner(owner_name)
+    else:
+        st.session_state.owner.setName(owner_name)
+
 
 if "pets" not in st.session_state:
     st.session_state.pets = []
@@ -59,17 +67,42 @@ if "owner" in st.session_state and isinstance(st.session_state.owner, pawpal_sys
 else:
     st.session_state.owner = None
 
-st.markdown("### Owner")
-st.caption("Create or update owner details.")
 
-if st.button("Create / Update Owner"):
-    if st.session_state.owner is None:
-        st.session_state.owner = pawpal_system.Owner(owner_name)
+if st.session_state.owner is not None:
+    st.markdown("#### Availability")
+    st.caption("Add free time blocks so the scheduler knows when the owner is available each day.")
+    avail_col1, avail_col2, avail_col3 = st.columns(3)
+    with avail_col1:
+        avail_day = st.selectbox("Day", [d.value for d in pawpal_system.DayOfWeek], key="avail_day")
+    with avail_col2:
+        avail_start = st.time_input("Start", value=time(9, 0), key="avail_start")
+    with avail_col3:
+        avail_end = st.time_input("End", value=time(17, 0), key="avail_end")
+    if st.button("Add availability block"):
+        try:
+            st.session_state.owner.addAvailability(
+                pawpal_system.DayOfWeek(avail_day),
+                pawpal_system.TimeRange(avail_start, avail_end),
+            )
+            st.success(f"Added {avail_start.strftime('%H:%M')}\u2013{avail_end.strftime('%H:%M')} on {avail_day}.")
+        except ValueError as err:
+            st.error(str(err))
+    avail_summary = [
+        {"Day": day.value, "Window": str(tr)}
+        for day in pawpal_system.DayOfWeek
+        for tr in st.session_state.owner.availability.get(day, [])
+    ]
+    if avail_summary:
+        st.dataframe(avail_summary, use_container_width=True)
     else:
-        st.session_state.owner.setName(owner_name)
+        st.info("No availability set yet. Add time blocks so tasks can be scheduled.")
 
 st.markdown("### Pets")
 st.caption("Create or update pets and their needs.")
+
+st.markdown("### Pets")
+st.caption("Create or update pets details.")
+pet_name_input = st.text_input("Pet name", value="Mochi")
 
 pet_col1, pet_col2, pet_col3 = st.columns(3)
 with pet_col1:
@@ -183,36 +216,32 @@ st.caption("Add all the tasks you must complete. These should feed into your sch
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
-with col2:
     priority = st.number_input("Priority (1 = highest)", min_value=1, max_value=99, value=1, step=1)
-with col3:
+with col2:
     category = st.selectbox("Category", [c.value for c in pawpal_system.TaskCategory], index=0)
-
-col4, col5, col6 = st.columns(3)
-with col4:
+with col3:
     routine_task = st.checkbox("Routine task", value=True)
-with col5:
-    if not routine_task:
-        frequency_type = st.selectbox("Frequency", [f.value for f in pawpal_system.FrequencyType], index=0)
-    else:
-        frequency_type = None
-with col6:
-    if not routine_task:
-        times_per_day = st.number_input("Times per day", min_value=0, max_value=10, value=1, step=1)
-    else:
-        times_per_day = 0
 
-col7, col8 = st.columns(2)
-with col8:
-    completed = st.checkbox("Completed", value=False)
+if not routine_task:
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
+    with col5:
+        frequency_type = st.selectbox("Frequency", [f.value for f in pawpal_system.FrequencyType], index=0)
+    with col6:
+        times_per_day = st.number_input("Times per day", min_value=0, max_value=10, value=1, step=1)
+else:
+    duration = 30
+    frequency_type = None
+    times_per_day = 0
+
+completed = st.checkbox("Completed", value=False)
 
 days_per_week = 0
 custom_days = []
 if not routine_task:
     if frequency_type == pawpal_system.FrequencyType.NUMBER_OF_DAYS.value:
-        with col7:
-            days_per_week = st.number_input("Days per week", min_value=1, max_value=7, value=1, step=1)
+        days_per_week = st.number_input("Days per week", min_value=1, max_value=7, value=1, step=1)
     elif frequency_type == pawpal_system.FrequencyType.CUSTOM_DAYS.value:
         custom_days = st.multiselect(
             "Custom days",
@@ -249,26 +278,147 @@ if st.button("Add task"):
         )
 
 if st.session_state.tasks:
-    st.write("Current tasks:")
-    st.table(st.session_state.tasks)
+    _preview_tasks = [
+        pawpal_system.Task(
+            containedPets=td["containedPets"],
+            priority=td["priority"],
+            category=td["category"],
+            maxDurationMinutes=td["maxDurationMinutes"],
+            routineTask=td["routineTask"],
+            frequencyType=td["frequencyType"],
+            customDays=td["customDays"],
+            daysPerWeek=td["daysPerWeek"],
+            timesPerDay=td["timesPerDay"],
+            completed=td["completed"],
+        )
+        for td in st.session_state.tasks
+    ]
+    _preview_sched = pawpal_system.Schedule()
+    _preview_sched.loadTasks(_preview_tasks)
+    task_rows = [
+        {
+            "Priority": t.priority,
+            "Category": t.category.value,
+            "Pets": ", ".join(p.name for p in t.containedPets),
+            "Duration (min)": t.maxDurationMinutes,
+            "Frequency": (
+                t.frequencyType.value if t.frequencyType else ("routine (daily)" if t.routineTask else "\u2014")
+            ),
+            "Completed": "\u2713" if t.completed else "",
+        }
+        for t in _preview_sched.getTasksSortedByPriority()
+    ]
+    st.write("Current tasks (sorted by priority):")
+    st.dataframe(task_rows, use_container_width=True)
 else:
     st.info("No tasks yet. Add one above.")
 
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("Generates a weekly plan based on owner availability, task priority, and recurrence.")
 
 if st.button("Generate schedule"):
-    st.warning(
-        "Not implemented yet. Next step: create your scheduling logic (classes/functions) and call it here."
+    if st.session_state.owner is None:
+        st.error("Please create an owner before generating a schedule.")
+    elif not st.session_state.tasks:
+        st.warning("No tasks to schedule. Add at least one task first.")
+    else:
+        task_objects = [
+            pawpal_system.Task(
+                containedPets=td["containedPets"],
+                priority=td["priority"],
+                category=td["category"],
+                maxDurationMinutes=td["maxDurationMinutes"],
+                routineTask=td["routineTask"],
+                frequencyType=td["frequencyType"],
+                customDays=td["customDays"],
+                daysPerWeek=td["daysPerWeek"],
+                timesPerDay=td["timesPerDay"],
+                completed=td["completed"],
+            )
+            for td in st.session_state.tasks
+        ]
+        schedule = pawpal_system.Schedule()
+        schedule.setOwner(st.session_state.owner)
+        for p in st.session_state.pets:
+            if isinstance(p, pawpal_system.Pet):
+                schedule.addPet(p)
+        schedule.loadTasks(task_objects)
+
+        try:
+            explanation = schedule.generateSchedule()
+        except ValueError as err:
+            st.error(str(err))
+        else:
+            st.session_state.schedule = schedule
+            conflict_lines = [
+                ln for ln in explanation.splitlines() if ln.strip().lower().startswith("could not")
+            ]
+            if not conflict_lines:
+                st.success(explanation)
+            else:
+                placed = len(schedule.generatedScheduledTasks)
+                st.warning(
+                    f"{placed} occurrence(s) scheduled. Some tasks could not be placed due to insufficient availability:"
+                )
+                for note in conflict_lines:
+                    st.warning(f"\u26a0 {note}")
+            if not schedule.generatedScheduledTasks:
+                st.error(
+                    "No tasks could be scheduled. Make sure the owner has availability set for the required days."
+                )
+
+# Always render the schedule table if one exists, so completion persists across reruns
+if st.session_state.schedule is not None and st.session_state.schedule.generatedScheduledTasks:
+    st.markdown("#### Weekly Schedule")
+    st.caption("Check \u2713 Done to mark a task occurrence as completed.")
+
+    entries = st.session_state.schedule.generatedScheduledTasks
+    schedule_data = [
+        {
+            "Done": entry.containedTask.completed,
+            "Day": entry.day.value.capitalize(),
+            "Time": str(entry.timeRange),
+            "Category": entry.containedTask.category.value,
+            "Pets": ", ".join(p.name for p in entry.containedTask.containedPets),
+            "Duration (min)": entry.containedTask.maxDurationMinutes,
+            "Priority": entry.containedTask.priority,
+        }
+        for entry in entries
+    ]
+
+    edited = st.data_editor(
+        schedule_data,
+        column_config={
+            "Done": st.column_config.CheckboxColumn(
+                "Done",
+                default=False,
+                help="Check to mark this occurrence as completed",
+            ),
+        },
+        disabled=["Day", "Time", "Category", "Pets", "Duration (min)", "Priority"],
+        use_container_width=True,
+        hide_index=True,
+        key="schedule_editor",
     )
-    st.markdown(
-        """
-Suggested approach:
-1. Design your UML (draft).
-2. Create class stubs (no logic).
-3. Implement scheduling behavior.
-4. Connect your scheduler here and display results.
-"""
-    )
+
+    # Sync checkbox state back to the persistent task objects in session state
+    for i, row in enumerate(edited):
+        if row["Done"]:
+            entries[i].containedTask.mark_complete()
+
+    incomplete = st.session_state.schedule.filterTasks(completion_status=False)
+    if incomplete:
+        st.markdown("#### Incomplete Tasks")
+        incomplete_rows = [
+            {
+                "Priority": t.priority,
+                "Category": t.category.value,
+                "Pets": ", ".join(p.name for p in t.containedPets),
+            }
+            for t in incomplete
+        ]
+        st.dataframe(incomplete_rows, use_container_width=True)
+    else:
+        st.success("All scheduled tasks are marked complete! \U0001f389")

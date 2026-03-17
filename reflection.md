@@ -47,12 +47,15 @@ The time slots are first come first served based on priority. So if a bunch of s
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+I used it throughout all parts of the process, but primarily for cleaning up, implementation, and testing.
+I especially appreciate the shorthand tools like /doc and /test to generate doc notes and tests.
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
 
----
+Through manual testing (seeing the app itself), refinement prompts, and reading through the code myself, I identified inconsistencies, errors, and bloated logic.
 
 ## 4. Testing and Verification
 
@@ -61,12 +64,14 @@ The time slots are first come first served based on priority. So if a bunch of s
 - What behaviors did you test?
 - Why were these tests important?
 
+Sorting correctness, recurrence logic, and conflict detection were the primary three areas to test for the most complex algorithms in the application (all mainly built for the schedule class).
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
 
----
+I am quite confident after testing the app out myself. But I would definitely want to play around more with adding duplicate tasks with varying pets (one containing 1 pet, another containing both). Also with overlapping availability time blocks.
 
 ## 5. Reflection
 
@@ -74,10 +79,16 @@ The time slots are first come first served based on priority. So if a bunch of s
 
 - What part of this project are you most satisfied with?
 
+The ability for each pet to have their own set needs (like meds) that don't need to constantly be re-entered with each new task that will include them.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+The ordering and display of the schedule could be much more readable. Same with the explanations for the schedule being a bit more than just alerts of exclusions.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+I learned a lot about how many iterations it can take for a robust system design. And how mermaid diagrams can help a lot with this.
