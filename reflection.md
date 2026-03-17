@@ -31,12 +31,14 @@ Medication has its own days and times to take them. ScheduledTask is a task with
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+Priority, task time duration, owner availability, frequency preferences for each pet, and frequency of non-routine tasks. The owner availability takes the highest precedence since the owner can't do anything outside of those time blocks. Next, priority is directly chosen by user, so this is a very important determinant of tradeoffs. After that, time durations and frequencies will fill based on the layout constructed by the first two constraints.
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
----
+The time slots are first come first served based on priority. So if a bunch of smaller, low-priority tasks could have fit into one contiguous time range, that might not be possible if the highest priority task found the big time slot first and takes up the whole block. This is reasonable because the user decides on that priority, thereby forgoing any number of the lower ones if necessary.
 
 ## 3. AI Collaboration
 

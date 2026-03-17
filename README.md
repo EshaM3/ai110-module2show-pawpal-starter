@@ -41,3 +41,9 @@ pip install -r requirements.txt
 5. Add tests to verify key behaviors.
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
+
+### Smarter Scheduling
+
+PawPal+ now has a full backend scheduling engine with practical, real-world features. You can model owners, pets, medications, and tasks; validate inputs (names, durations, non-overlapping time windows); and schedule tasks by priority against owner availability across the week. The planner supports routine and frequency-based tasks (daily, weekly, custom days, or number of days), tracks completion status, and outputs readable HH:MM time blocks. On top of that, tasks can be sorted by priority and filtered by completion or pet name, with tests covering key behaviors like task completion, time formatting, sorting, and filtering. The Streamlit UI also supports creating/updating owners and pets, defining frequencies, adding tasks, and preparing data for schedule generation.
+
+

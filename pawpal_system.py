@@ -28,6 +28,11 @@ def _add_minutes(t: time, minutes: int) -> time:
 	return _time_from_minutes(_minutes_since_midnight(t) + minutes)
 
 
+def _format_time(t: time) -> str:
+	"""Render a time object using 24-hour HH:MM formatting."""
+	return t.strftime("%H:%M")
+
+
 def _validate_name(name: str, field_name: str = "name") -> str:
 	"""Strip whitespace from *name* and raise ValueError if the result is empty."""
 	cleaned = name.strip()
@@ -57,6 +62,40 @@ def _validate_non_overlapping_ranges(ranges: list[TimeRange]) -> list[TimeRange]
 		if _minutes_since_midnight(cur.startTime) < _minutes_since_midnight(prev.endTime):
 			raise ValueError("Time ranges cannot overlap.")
 	return sorted_ranges
+
+
+def _insert_non_overlapping_range(ranges: list[TimeRange], new_range: TimeRange) -> list[TimeRange]:
+	"""Insert *new_range* into a sorted, non-overlapping range list.
+
+	This helper assumes *ranges* is already sorted by start time with no overlaps.
+	It validates *new_range*, inserts it in sorted position, and checks only the
+	adjacent neighbors for overlap.
+
+	Returns:
+		A new list with *new_range* inserted.
+
+	Raises:
+		ValueError: If *new_range* is invalid or overlaps with neighbors.
+	"""
+	_validate_time_range(new_range)
+	new_start = _minutes_since_midnight(new_range.startTime)
+	new_end = _minutes_since_midnight(new_range.endTime)
+
+	insert_at = 0
+	while insert_at < len(ranges) and _minutes_since_midnight(ranges[insert_at].startTime) < new_start:
+		insert_at += 1
+
+	if insert_at > 0:
+		prev_end = _minutes_since_midnight(ranges[insert_at - 1].endTime)
+		if new_start < prev_end:
+			raise ValueError("Time ranges cannot overlap.")
+
+	if insert_at < len(ranges):
+		next_start = _minutes_since_midnight(ranges[insert_at].startTime)
+		if new_end > next_start:
+			raise ValueError("Time ranges cannot overlap.")
+
+	return ranges[:insert_at] + [new_range] + ranges[insert_at:]
 
 
 def _canonical_day_list(days: list[DayOfWeek] | None) -> list[DayOfWeek]:
@@ -143,6 +182,14 @@ class TimeRange:
 
 	startTime: time
 	endTime: time
+
+	def __str__(self) -> str:
+		"""Return the range in HH:MM-HH:MM form for schedule display."""
+		return f"{_format_time(self.startTime)}-{_format_time(self.endTime)}"
+
+	def __repr__(self) -> str:
+		"""Return a compact debugging representation with formatted times."""
+		return f"TimeRange(startTime={_format_time(self.startTime)!r}, endTime={_format_time(self.endTime)!r})"
 
 
 @dataclass
@@ -488,6 +535,23 @@ class ScheduledTask:
 		"""Set the time window for this occurrence after validating the range."""
 		_validate_time_range(tr)
 		self.timeRange = tr
+
+	def __str__(self) -> str:
+		"""Return a human-readable schedule line with HH:MM formatted time."""
+		return (
+			f"{self.day.value}: {self.containedTask.category.value} {self.timeRange}"
+		)
+
+	def __repr__(self) -> str:
+		"""Return a concise debugging representation with formatted time range."""
+		return (
+			"ScheduledTask("
+			f"containedTask={self.containedTask!r}, "
+			f"containedOwner={self.containedOwner!r}, "
+			f"day={self.day!r}, "
+			f"timeRange={self.timeRange!r}"
+			")"
+		)
 	
 
 @dataclass
@@ -531,6 +595,35 @@ class Schedule:
 		for i, task in enumerate(sorted(self.tasks, key=lambda t: t.priority), start=1):
 			task.priority = i
 
+	def getTasksSortedByPriority(self) -> list[Task]:
+		"""Return all loaded tasks sorted by ascending priority value."""
+		return sorted(self.tasks, key=lambda t: t.priority)
+
+	def filterTasks(
+		self,
+		completion_status: bool | None = None,
+		pet_name: str | None = None,
+	) -> list[Task]:
+		"""Filter tasks by completion status and/or associated pet name.
+
+		When no filters are provided, all tasks are returned in priority order.
+		Pet-name filtering is case-insensitive and matches exact pet names.
+		"""
+		filtered = self.getTasksSortedByPriority()
+
+		if completion_status is not None:
+			filtered = [task for task in filtered if task.completed == completion_status]
+
+		if pet_name is not None:
+			target_name = _validate_name(pet_name, "pet_name").lower()
+			filtered = [
+				task
+				for task in filtered
+				if any(pet.name.lower() == target_name for pet in task.containedPets)
+			]
+
+		return filtered
+
 	def _resolve_task_days(self, task: Task) -> list[DayOfWeek]:
 		"""Return the concrete days this task must be placed on, derived from its frequency settings."""
 		if task.frequencyType is None:
@@ -547,22 +640,36 @@ class Schedule:
 	) -> TimeRange | None:
 		"""Find the earliest contiguous free slot of *duration_minutes* within *available_ranges*.
 
-		Slots already used by *occupied_ranges* are skipped. Returns None if no
-		sufficiently large gap exists.
+		Both inputs are validated/sorted first. The scan uses a moving pointer over
+		occupied ranges so each busy block is visited at most once across the full
+		search, which avoids repeatedly scanning earlier busy slots for each
+		availability window.
+
+		Returns:
+			A TimeRange representing the first slot that can fit the requested
+			duration, or None if no valid gap exists.
 		"""
 		available_sorted = _validate_non_overlapping_ranges(list(available_ranges))
 		occupied_sorted = _validate_non_overlapping_ranges(list(occupied_ranges))
+		occupied_index = 0
 
 		for available in available_sorted:
 			cursor = _minutes_since_midnight(available.startTime)
 			window_end = _minutes_since_midnight(available.endTime)
 
-			for busy in occupied_sorted:
+			while (
+				occupied_index < len(occupied_sorted)
+				and _minutes_since_midnight(occupied_sorted[occupied_index].endTime) <= cursor
+			):
+				occupied_index += 1
+
+			busy_index = occupied_index
+
+			while busy_index < len(occupied_sorted):
+				busy = occupied_sorted[busy_index]
 				busy_start = _minutes_since_midnight(busy.startTime)
 				busy_end = _minutes_since_midnight(busy.endTime)
 
-				if busy_end <= cursor:
-					continue
 				if busy_start >= window_end:
 					break
 
@@ -572,6 +679,7 @@ class Schedule:
 				cursor = max(cursor, busy_end)
 				if cursor >= window_end:
 					break
+				busy_index += 1
 
 			if window_end - cursor >= duration_minutes:
 				return TimeRange(_time_from_minutes(cursor), _time_from_minutes(cursor + duration_minutes))
@@ -584,6 +692,10 @@ class Schedule:
 		Tasks are placed in priority order (lowest number first). For each task,
 		every required day and occurrence is attempted using a first-fit strategy
 		against the owner's availability, avoiding previously occupied slots.
+
+		Internally, occupied ranges are maintained incrementally per day using a
+		neighbor-checked insert helper, avoiding full list re-sorts on every
+		placement.
 
 		Returns:
 			A human-readable explanation string. Lists any tasks that could not be
@@ -599,7 +711,7 @@ class Schedule:
 		occupied: dict[DayOfWeek, list[TimeRange]] = {day: [] for day in DayOfWeek}
 		unscheduled_notes: list[str] = []
 
-		sorted_tasks = sorted(self.tasks, key=lambda t: t.priority)
+		sorted_tasks = self.getTasksSortedByPriority()
 
 		for task in sorted_tasks:
 			days = self._resolve_task_days(task)
@@ -622,7 +734,7 @@ class Schedule:
 						timeRange=slot,
 					)
 					self.generatedScheduledTasks.append(scheduled)
-					occupied[day] = _validate_non_overlapping_ranges(occupied[day] + [slot])
+					occupied[day] = _insert_non_overlapping_range(occupied[day], slot)
 
 		if unscheduled_notes:
 			self.explanation = "\n".join(unscheduled_notes)

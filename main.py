@@ -37,33 +37,47 @@ p2.setGroomingFrequency(
     [pawpal_system.DayOfWeek.WED, pawpal_system.DayOfWeek.THU],
 )
 
-t1 = pawpal_system.Task([p1], 1, pawpal_system.TaskCategory.VET_APPOINTMENTS, 90, False)
+t1 = pawpal_system.Task([p1], 5, pawpal_system.TaskCategory.VET_APPOINTMENTS, 90, False)
 t1.setFrequency(
     pawpal_system.FrequencyType.CUSTOM_DAYS,
     [pawpal_system.DayOfWeek.TUE, pawpal_system.DayOfWeek.THU],
 )
 
-t2 = pawpal_system.Task([p1, p2], 2, pawpal_system.TaskCategory.GROCERY_VISITS, 35, False)
+t2 = pawpal_system.Task([p1, p2], 1, pawpal_system.TaskCategory.GROCERY_VISITS, 35, False)
 t2.setFrequency(pawpal_system.FrequencyType.WEEKLY)
 
-t3 = pawpal_system.Task([p1, p2], 3, pawpal_system.TaskCategory.ENRICHMENT, 40, False)
+t3 = pawpal_system.Task([p1, p2], 6, pawpal_system.TaskCategory.ENRICHMENT, 40, False)
 t3.setFrequency(pawpal_system.FrequencyType.DAILY)
 
-t4 = pawpal_system.Task([p1,p2], 2, pawpal_system.TaskCategory.FEEDING, 25, True)
-t5 = pawpal_system.Task([p1], 1, pawpal_system.TaskCategory.MEDS, 10, True)
-t6 = pawpal_system.Task([p1,p2], 3, pawpal_system.TaskCategory.GROOMING, 40, True)
+t4 = pawpal_system.Task([p1,p2], 3, pawpal_system.TaskCategory.FEEDING, 25, True)
+t5 = pawpal_system.Task([p1], 2, pawpal_system.TaskCategory.MEDS, 10, True)
+t6 = pawpal_system.Task([p1,p2], 4, pawpal_system.TaskCategory.GROOMING, 40, True)
 s = pawpal_system.Schedule()
 s.setOwner(o)
 s.addPet(p1)
 s.addPet(p2)
-s.loadTasks([t1, t2, t3, t4, t5, t6])
+s.loadTasks([t3, t1, t6, t2, t5, t4])
+
+t2.mark_complete()
+t5.mark_complete()
+
+print("Sorted tasks by priority:")
+for task in s.getTasksSortedByPriority():
+    pet_names = ", ".join(pet.name for pet in task.containedPets)
+    print(
+        f"priority={task.priority} category={task.category.value} "
+        f"completed={task.completed} pets=[{pet_names}]"
+    )
+
+print("\nCompleted tasks only:")
+for task in s.filterTasks(completion_status=True):
+    print(f"priority={task.priority} category={task.category.value}")
+
+print("\nTasks for pet 'Rufus':")
+for task in s.filterTasks(pet_name="Rufus"):
+    print(f"priority={task.priority} category={task.category.value}")
 
 print(s.generateSchedule())
 
 for scheduled_task in s.generatedScheduledTasks:
-    print(
-        f"{scheduled_task.day.value}: "
-        f"{scheduled_task.containedTask.category.value} "
-        f"{scheduled_task.timeRange.startTime.strftime('%H:%M')}-"
-        f"{scheduled_task.timeRange.endTime.strftime('%H:%M')}"
-    )
+    print(scheduled_task)
